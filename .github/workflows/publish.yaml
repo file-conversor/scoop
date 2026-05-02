@@ -1,0 +1,56 @@
+# .github/workflows/publish.yaml
+
+#  This workflow listens for a repository_dispatch event with the type "update-package".
+#  When triggered, it updates the Scoop manifest JSON file with the new version.
+
+name: Update Scoop Manifest
+
+on:
+  repository_dispatch:
+    types: [ update-package ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to update in the manifest (e.g., v1.2.3)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ github.event.client_payload.version || github.event.inputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: MinoruSekine/setup-scoop@v4.0.2
+        with:
+          install_scoop: "true"
+          scoop_update: "true"
+          update_path: "true"
+
+      - name: Update JSON Manifest
+        run: |
+          ./scripts/update_manifest.sh  
+        shell: bash
+
+      - name: Test JSON Manifest
+        run: |
+          $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
+          scoop install .\bucket\file_conversor.json
+          file_conversor --version
+        shell: pwsh
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket
+          git diff --cached --quiet && echo "No changes" && exit 0 || echo "Changes detected, committing..."
+          git commit -m "Update Scoop manifest to version $VERSION"
+          git push 
+        shell: bash
