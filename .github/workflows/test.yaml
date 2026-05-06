@@ -1,0 +1,42 @@
+# .github/workflows/test.yaml
+
+name: Test Scoop Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - uses: MinoruSekine/setup-scoop@v4.0.2
+        with:
+          install_scoop: "true"
+          scoop_update: "true"
+          update_path: "true"
+
+      - name: Setting env variables
+        run: |
+          NAME="$(basename bucket/*.json .json)"          
+
+          echo "NAME=${NAME}" >> $GITHUB_ENV
+          
+          echo "Environment vars:"
+          echo "NAME=${NAME}"
+        shell: bash
+
+      - name: Install scoop bucket
+        run: |
+          scoop install .\bucket\${env:NAME}.json
+        shell: pwsh
+
+      - name: Test App Installation
+        run: |
+          ${env:NAME} --version
+        shell: pwsh
+
